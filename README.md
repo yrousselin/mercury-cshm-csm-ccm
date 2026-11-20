@@ -19,7 +19,8 @@ The report is in French.
 **Which atoms are used**
 
 - If you **select atoms** in Mercury before running the script (exactly one metal plus its donor atoms), only that site is analysed.
-- Otherwise, every metal of the structure is analysed together with its bonded neighbours.
+- Otherwise, every symmetry-independent metal is analysed. Its full coordination sphere is **rebuilt from the unit cell and the symmetry operators**, so the script also works for **MOFs, coordination polymers and metals on special positions** (for example Zn in ZIF-8, where the asymmetric unit holds only one of the four N atoms). Donor atoms are the non-hydrogen, non-metal atoms closer than the sum of the covalent radii + 0.45 Å. If the structure has no unit cell, the bonds defined in Mercury are used instead.
+- The report lists the donor atoms and their distances for each metal, so you can check the coordination sphere at a glance.
 
 ## Requirements
 
@@ -33,7 +34,26 @@ The report is in French.
 
 ### Step 1: install cosymlib
 
-Install cosymlib in its own Python environment, as the [cosymlib installation page](https://cosymlib.readthedocs.io/en/latest/install.html) recommends. The script then calls that Python whenever cosymlib is not available inside Mercury.
+The script needs a Python in which `import cosymlib` works. When cosymlib is not available inside Mercury, the script calls the Python given by `PYTHON_EXTERNE` (step 2). Two options:
+
+#### Option A (simplest): install cosymlib in the Python of the CSD
+
+Call pip **through the full path** of the CSD Python, so that cosymlib goes into that Python whatever conda environment is active in your terminal:
+
+```
+/Users/<name>/CCDC/ccdc-software/csd-python-api/miniconda/bin/python -m pip install cosymlib
+/Users/<name>/CCDC/ccdc-software/csd-python-api/miniconda/bin/python -c "import cosymlib; print('cosymlib OK')"
+```
+
+(Windows: `"C:\Program Files\CCDC\ccdc-software\csd-python-api\miniconda\python.exe" -m pip install cosymlib`, adapting the path to your installation.)
+
+Precompiled versions of cosymlib exist for Python 3.10 to 3.12 on Linux, Windows and Apple Silicon Macs. On an Intel Mac, pip has to compile cosymlib and needs a Fortran compiler.
+
+> ⚠️ **A CSD update reinstalls this Python and removes cosymlib.** After each update, run the `pip install` command again.
+
+#### Option B: install cosymlib in its own environment
+
+As the [cosymlib installation page](https://cosymlib.readthedocs.io/en/latest/install.html) recommends; this environment survives CSD updates.
 
 1. Install **Miniconda** or **Anaconda** if you do not have it yet.
 2. Open a terminal:
@@ -55,11 +75,12 @@ Install cosymlib in its own Python environment, as the [cosymlib installation pa
 
 ### Step 2: point the script to that Python
 
-Open `CShM_CSM_CCM_analysis.py` in a text editor (TextEdit in plain-text mode, Notepad, or any code editor). Replace the path on **line 9** with your own:
+Open `CShM_CSM_CCM_analysis.py` in a text editor (TextEdit in plain-text mode, Notepad, or any code editor). Replace the path of the `PYTHON_EXTERNE = ...` line (**line 10**) with the Python from step 1:
 
 ```python
-PYTHON_EXTERNE = "/Users/<name>/miniconda3/envs/cosym_env/bin/python"        # macOS
-PYTHON_EXTERNE = "C:/Users/<name>/miniconda3/envs/cosym_env/python.exe"      # Windows
+PYTHON_EXTERNE = "/Users/<name>/CCDC/ccdc-software/csd-python-api/miniconda/bin/python"   # option A, macOS
+PYTHON_EXTERNE = "/Users/<name>/miniconda3/envs/cosym_env/bin/python"        # option B, macOS
+PYTHON_EXTERNE = "C:/Users/<name>/miniconda3/envs/cosym_env/python.exe"      # option B, Windows
 ```
 
 On Windows, write the path with forward slashes `/`, as above.
@@ -79,7 +100,18 @@ On Windows, write the path with forward slashes `/`, as above.
 ## Limitations
 
 - Coordination numbers from 2 to 12 only. Other sites are listed as skipped.
-- The bonded neighbours are those defined in Mercury. Check the bonds of long or ambiguous metal–ligand contacts, or select the donor atoms yourself.
+- Donor atoms are found with a distance criterion (sum of covalent radii + `BOND_TOL` = 0.45 Å, at most `R_SEARCH` = 3.3 Å). For long or ambiguous metal–ligand contacts (chelating carboxylates, weak axial contacts), adjust these two values at the top of the script, or select the donor atoms yourself. Metal–metal contacts are not counted as donors.
+- With disordered structures, check the donor list in the report: atoms of several disorder components may be counted.
+
+## Troubleshooting
+
+The report shows the full error message. The most common cases:
+
+| Message in the report | Cause | Fix |
+|---|---|---|
+| `Zn1 : CN 1 ignoré` (or a coordination number that is too low) | old version of the script, which only read the asymmetric unit | use the current version |
+| `ModuleNotFoundError: No module named 'cosymlib'` | cosymlib is not installed in the Python given by `PYTHON_EXTERNE` (often after a CSD update) | run the `pip install` command shown at the end of the message |
+| `processus tué par le signal 11` | cosymlib crashed on one measure | the other measures are still given; the failed one is listed in red |
 
 ## Credits and references
 
