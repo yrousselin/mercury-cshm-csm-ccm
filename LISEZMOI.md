@@ -17,7 +17,8 @@ Pour chaque centre métallique ayant de 2 à 12 atomes donneurs, le rapport donn
 **Quels atomes sont pris en compte**
 
 - Si vous **sélectionnez des atomes** dans Mercury avant de lancer le script (exactement un métal et ses atomes donneurs), seul ce site est analysé.
-- Sinon, tous les métaux de la structure sont analysés avec leurs voisins liés.
+- Sinon, chaque métal indépendant par symétrie est analysé. Sa sphère de coordination complète est **reconstruite à partir de la maille et des opérateurs de symétrie** : le script fonctionne donc aussi pour les **MOF, les polymères de coordination et les métaux sur position spéciale** (par exemple Zn dans le ZIF-8, où l'unité asymétrique ne contient qu'un des quatre N). Les atomes donneurs sont les atomes non hydrogène et non métalliques plus proches que la somme des rayons covalents + 0,45 Å. Si la structure n'a pas de maille, ce sont les liaisons définies dans Mercury qui sont utilisées.
+- Le rapport donne, pour chaque métal, la liste des atomes donneurs et leurs distances, pour vérifier la sphère de coordination d'un coup d'œil.
 
 ## Prérequis
 
@@ -31,7 +32,26 @@ Pour chaque centre métallique ayant de 2 à 12 atomes donneurs, le rapport donn
 
 ### Étape 1 : installer cosymlib
 
-Installez cosymlib dans un environnement Python à part, comme le recommande la [page d'installation de cosymlib](https://cosymlib.readthedocs.io/en/latest/install.html). Le script appelle ensuite ce Python chaque fois que cosymlib n'est pas disponible dans Mercury.
+Le script a besoin d'un Python dans lequel `import cosymlib` fonctionne. Quand cosymlib n'est pas disponible dans Mercury, le script appelle le Python indiqué par `PYTHON_EXTERNE` (étape 2). Deux possibilités :
+
+#### Option A (la plus simple) : installer cosymlib dans le Python de la CSD
+
+Appelez pip **par le chemin complet** du Python de la CSD : cosymlib s'installe alors dans ce Python, quel que soit l'environnement conda actif dans votre terminal.
+
+```
+/Users/<nom>/CCDC/ccdc-software/csd-python-api/miniconda/bin/python -m pip install cosymlib
+/Users/<nom>/CCDC/ccdc-software/csd-python-api/miniconda/bin/python -c "import cosymlib; print('cosymlib OK')"
+```
+
+(Windows : `"C:\Program Files\CCDC\ccdc-software\csd-python-api\miniconda\python.exe" -m pip install cosymlib`, en adaptant le chemin à votre installation.)
+
+cosymlib existe en version précompilée pour Python 3.10 à 3.12 sous Linux, Windows et Mac Apple Silicon. Sur un Mac Intel, pip doit compiler cosymlib et a besoin d'un compilateur Fortran.
+
+> ⚠️ **Une mise à jour de la CSD réinstalle ce Python et efface cosymlib.** Après chaque mise à jour, relancez la commande `pip install`.
+
+#### Option B : installer cosymlib dans un environnement à part
+
+Comme le recommande la [page d'installation de cosymlib](https://cosymlib.readthedocs.io/en/latest/install.html) ; cet environnement résiste aux mises à jour de la CSD.
 
 1. Installez **Miniconda** ou **Anaconda** si ce n'est pas déjà fait.
 2. Ouvrez un terminal :
@@ -53,11 +73,12 @@ Installez cosymlib dans un environnement Python à part, comme le recommande la 
 
 ### Étape 2 : indiquer ce Python au script
 
-Ouvrez `CShM_CSM_CCM_analysis.py` dans un éditeur de texte (TextEdit en mode texte brut, Bloc-notes, ou un éditeur de code). Remplacez le chemin de la **ligne 9** par le vôtre :
+Ouvrez `CShM_CSM_CCM_analysis.py` dans un éditeur de texte (TextEdit en mode texte brut, Bloc-notes, ou un éditeur de code). Remplacez le chemin de la ligne `PYTHON_EXTERNE = ...` (**ligne 10**) par le Python de l'étape 1 :
 
 ```python
-PYTHON_EXTERNE = "/Users/<nom>/miniconda3/envs/cosym_env/bin/python"        # macOS
-PYTHON_EXTERNE = "C:/Users/<nom>/miniconda3/envs/cosym_env/python.exe"      # Windows
+PYTHON_EXTERNE = "/Users/<nom>/CCDC/ccdc-software/csd-python-api/miniconda/bin/python"   # option A, macOS
+PYTHON_EXTERNE = "/Users/<nom>/miniconda3/envs/cosym_env/bin/python"        # option B, macOS
+PYTHON_EXTERNE = "C:/Users/<nom>/miniconda3/envs/cosym_env/python.exe"      # option B, Windows
 ```
 
 Sous Windows, écrivez le chemin avec des barres obliques `/`, comme ci-dessus.
@@ -77,7 +98,18 @@ Sous Windows, écrivez le chemin avec des barres obliques `/`, comme ci-dessus.
 ## Limites
 
 - Nombres de coordination de 2 à 12 uniquement. Les autres sites sont signalés comme ignorés.
-- Les voisins liés sont ceux définis dans Mercury. Vérifiez les liaisons pour les contacts métal–ligand longs ou ambigus, ou sélectionnez vous-même les atomes donneurs.
+- Les atomes donneurs sont trouvés par un critère de distance (somme des rayons covalents + `BOND_TOL` = 0,45 Å, au plus `R_SEARCH` = 3,3 Å). Pour des contacts métal–ligand longs ou ambigus (carboxylates chélatants, contacts axiaux faibles), ajustez ces deux valeurs en tête du script, ou sélectionnez vous-même les atomes donneurs. Les contacts métal–métal ne sont pas comptés.
+- Pour les structures désordonnées, vérifiez la liste des donneurs dans le rapport : des atomes de plusieurs composantes de désordre peuvent être comptés.
+
+## Dépannage
+
+Le rapport affiche le message d'erreur complet. Les cas les plus fréquents :
+
+| Message dans le rapport | Cause | Solution |
+|---|---|---|
+| `Zn1 : CN 1 ignoré` (ou nombre de coordination trop faible) | ancienne version du script, qui ne lisait que l'unité asymétrique | utiliser la version actuelle |
+| `ModuleNotFoundError: No module named 'cosymlib'` | cosymlib n'est pas installé dans le Python de `PYTHON_EXTERNE` (souvent après une mise à jour de la CSD) | lancer la commande `pip install` indiquée à la fin du message |
+| `processus tué par le signal 11` | cosymlib a planté sur une mesure | les autres mesures sont quand même données ; celle qui a échoué est signalée en rouge |
 
 ## Crédits et références
 
